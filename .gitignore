@@ -1,0 +1,13 @@
+# Ignore RStudio files
+.Rproj.user
+*.Rproj
+.Rhistory
+.Rdata
+.httr-oauth
+.DS_Store
+
+# Ignore R pkg files
+inst/doc
+docs
+/doc/
+/Meta/

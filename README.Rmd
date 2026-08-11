@@ -1,0 +1,225 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+
+library(SomaEnrich)
+library(dplyr)
+
+ver <- desc::desc_get_version(".")
+ver <- paste0("https://img.shields.io/badge/Version-", ver,
+              "-success.svg?style=flat&logo=github")
+```
+
+
+# SomaEnrich
+
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+_This R package is an in-development resource and is research use only._
+
+## Overview
+
+The `SomaEnrich` R package provides tools to perform pathway analysis with 
+proteomic data obtained from the SomaScan assay. The package also provides 
+auxiliary functions for manipulating, converting, and filtering data prior
+to pathway analysis, as well as detailed documentation describing the unique 
+steps required to perform these operations with proteomic data (as opposed 
+to genomic data).
+
+For more information about SomaScan data files (i.e. the ADAT, or `.adat` file) 
+and their format, please see the 
+[SomaLogic-Data](https://github.com/SomaLogic/SomaLogic-Data) GitHub repository.
+
+If you run into any issues/problems with `SomaEnrich` or have questions 
+about SomaScan analysis that are not answered by this package, please
+consult the [issues](https://github.com/SomaLogic/SomaEnrich/issues/)
+page and submit an issue and/or feature request.
+
+### Package Key Features
+
+- **Overrepresentation Analysis (ORA)**: Identify pathways enriched in a set of 
+  differentially expressed proteins using hypergeometric testing
+- **Gene Set Enrichment Analysis (GSEA)**: Perform preranked GSEA to detect 
+  coordinated changes in predefined gene sets
+- **SomaScan Identifier Handling**: Conversion between common gene identifiers 
+  and SomaScan-specific `AptNames`
+- **Visualization Tools**: Plots to visualize the results of ORA and GSEA
+
+---------------------
+
+## Installation
+
+_Note: SomaEnrich was developed and tested on macOS and Linux operating_
+_systems. Users running Windows may encounter unexpected behavior or errors._
+
+`SomaEnrich` requires that the user have R >= 4.4.0 installed on their
+system. 
+
+To install and load `SomaEnrich` from this repository, please run the 
+following:
+
+```{r install-github, eval=FALSE}
+remotes::install_github("SomaLogic/SomaEnrich")
+```
+
+Once installed, the package can be loaded using the usual syntax:
+
+```{r load-pkg, eval=FALSE}
+library(SomaEnrich)
+```
+
+
+## Package Dependencies
+
+Below are the package dependencies for `SomaEnrich` (see also the DESCRIPTION file):
+
+* [SomaDataIO](https://CRAN.R-project.org/package=SomaDataIO) - install from CRAN: `install.packages("SomaDataIO")`
+* [fgsea](https://bioconductor.org/packages/release/bioc/html/fgsea.html) - install from Bioconductor: `BiocManager::install("fgsea")`
+* [ggplot2](https://CRAN.R-project.org/package=ggplot2) - install from CRAN: `install.packages("ggplot2")`
+* [patchwork](https://CRAN.R-project.org/package=patchwork) - install from CRAN: `install.packages("patchwork")`
+* [rlang](https://CRAN.R-project.org/package=rlang) - install from CRAN: `install.packages("rlang")`
+* [scales](https://CRAN.R-project.org/package=scales) - install from CRAN: `install.packages("scales")`
+* [stringr](https://CRAN.R-project.org/package=stringr) - install from CRAN: `install.packages("stringr")`
+* [tidyr](https://CRAN.R-project.org/package=tidyr) - install from CRAN: `install.packages("tidyr")`
+* [withr](https://CRAN.R-project.org/package=withr) - install from CRAN: `install.packages("withr")`
+
+The GSEA and ORA functions in this package use the respective algorithms from 
+`fgsea`, under the hood. Please see the `fgsea` documentation for more 
+information.
+
+---------------------
+
+## Quick Start
+
+### Identifier Conversion
+
+Convert SomaScan analytes to genes:
+
+```{r convert-to-genes}
+head(ex_apt_pathway)
+
+apt2gene(head(ex_apt_pathway))
+```
+
+Convert genes to SomaScan analytes:
+
+```{r convert-to-apts}
+genes <- withr::with_seed(123, sample(ex_gene_pathway, 5))
+
+gene2apt(genes) # Returns NA if no analyte is found
+```
+
+Convert a GO term from genes to SomaScan analytes:
+
+```{r convert-go-term}
+go2apt("GO:0022602")
+```
+
+
+### Overrepresentation Analysis (ORA)
+
+Identify pathways represented in a set of differentially expressed proteins:
+
+```{r ora-example}
+# Get top differentially expressed genes from a pre-sorted results table
+deg <- head(t_tests$EntrezGeneSymbol, 50)
+uni <- t_tests$EntrezGeneSymbol
+
+# Run ORA using GO Biological Process (the default)
+ora_res <- somaORA(features = deg, universe = uni)
+head(ora_res)
+```
+
+```{r ora-viz, fig.width=8, fig.height=7}
+# Visualize the ORA results
+plotBubble(ora_res, n_pathways = 15)
+```
+
+
+### Gene Set Enrichment Analysis (GSEA)
+
+Pre-ranked GSEA can be performed using the following workflow:
+
+```
+prepareRanks() --> somaPrGSEA() --> plotES()
+```
+
+#### Preparing Ranked Input
+
+Resolve many-to-one analyte-gene mappings and split heterodimers to create
+a clean, unique ranking vector suitable for GSEA:
+
+```{r prepare-ranks}
+unique_ranks <- prepareRanks(stats = t_tests$log2_fc,
+                             features = t_tests$EntrezGeneSymbol,
+                             resolve_multimapping = TRUE,
+                             resolve_method = "abs")
+
+head(unique_ranks)
+```
+
+#### Running GSEA
+
+Perform preranked GSEA to detect coordinated pathway changes:
+
+```{r gsea-example}
+# Use GO Biological Process (the default)
+gsea_res <- somaPrGSEA(ranks = unique_ranks)
+```
+
+```{r gsea-viz, fig.width=8, fig.height=6}
+# Visualize the enrichment score for a chosen pathway
+plotES("female gamete generation", gsea_results = gsea_res)
+
+# Add leading edge points to plot
+plotES("female gamete generation", gsea_results = gsea_res, show_leading_edge = TRUE)
+```
+
+
+---------------------
+
+## Package Data Objects
+
+`SomaEnrich` comes bundled with data objects for use in examples and vignettes:
+
+| Object | Description |
+|--------|-------------|
+| `example_data_11k` | A `soma_adat` containing example 11K SomaScan data |
+| `t_tests` | Results of a two-group comparison of the Sex variable to identify genes differentially expressed in males vs. females |
+| `pathway_map` | Mapping of genes to pathways from GO and MSigDB |
+| `ex_gene_pathway` | Example pathway comprised of gene identifiers |
+| `ex_apt_pathway` | Example pathway comprised of SomaScan `AptNames` |
+
+The GO and MSigDB data in `pathway_map` is made available under the terms of 
+the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/). See 
+`?pathway_map` for more details. 
+
+
+---------------------
+
+## MIT LICENSE
+
+`SomaEnrich` is licensed under the MIT license and is intended
+solely for research use only (RUO) purposes. The code contained
+herein may not be used for diagnostic, clinical, therapeutic, or other
+commercial purposes.
+
+- See:
+  - [LICENSE](https://github.com/SomaLogic/SomaEnrich/blob/main/LICENSE.md)
+- The MIT license:
+  - <https://choosealicense.com/licenses/mit/>
+  - [https://www.tldrlegal.com/license/mit-license/](https://www.tldrlegal.com/license/mit-license)
+- Further:
+  - "SomaEnrich" and "SomaLogic" are trademarks owned by Illumina, Inc. No license is hereby granted to these trademarks other than for purposes of identifying the origin or source of this Software.

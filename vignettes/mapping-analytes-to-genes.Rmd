@@ -1,0 +1,508 @@
+---
+title: "Non-1:1 Relationships in the SomaScan Menu"
+output: rmarkdown::html_vignette
+bibliography: references.bib
+vignette: >
+  %\VignetteIndexEntry{Non-1:1 Relationships in the SomaScan Menu}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(SomaDataIO)
+library(SomaEnrich)
+library(dplyr)
+library(tibble)
+
+ex_gene <- "KLK3"
+ex_gene_name <- "Prostate-Specific Antigen"
+rank_metric <- "t_stat"
+
+t_tests <- dplyr::arrange(t_tests, desc(abs(t_stat)), fdr)
+
+gene_ranked <- filter(t_tests, EntrezGeneSymbol == ex_gene) |>
+    select(AptName, EntrezGeneSymbol, !!sym(rank_metric)) |>
+    arrange(desc(!!sym(rank_metric)))
+```
+
+_This R package is an in-development resource and is research use only._
+
+-----
+
+# Overview
+
+The SomaScan menu contains instances of non-1:1 relationships between
+SOMAmer<sup>&reg;</sup> Reagents and their target proteins. In simple terms, 
+this means there is sometimes not a perfect, singular line that can be drawn 
+between one SOMAmer Reagent, its target protein, and the gene that transcribes 
+it. This is a unique characteristic of SomaScan, stemming from the biological 
+complexity and diversity of the proteome. Understanding and 
+handling these non-1:1 relationships can be a crucial 
+processing step for pathway analysis, particularly when using 
+tools or methods developed for gene-based (transcriptomic) data. 
+
+This vignette will explain why these relationships are relevant to pathway 
+analysis, and demonstrate how the tools in SomaEnrich can be used to streamline
+a pathway analysis workflow.
+
+
+---------------
+
+## How SomaScan Measures Proteins
+
+To better understand non-1:1 relationships in the SomaScan menu, and how their 
+presence shapes data analysis, it first helps to know how the assay works. 
+
+SOMAmer Reagents bind to three-dimensional protein structures, like epitopes, 
+and are conceptually similar to monoclonal antibodies in immunoassays. Because 
+SomaScan measures specific structural features, rather than entire proteins, a 
+single protein can be detected by multiple SOMAmer Reagents if it contains 
+multiple distinct binding structures. 
+
+So, for example, the following 1:many pattern could be observed in the data:
+
+    Protein 1 ____ SOMAmer Reagent 1
+            |_____ SOMAmer Reagent 2
+            |_____ SOMAmer Reagent 3
+
+This differs from non-affinity-based protein measurement technologies like 
+mass spectrometry, where measurements typically correspond more directly to 
+individual proteins or genes.
+
+With this context in mind, the remainder of this vignette will use example 
+SomaScan data and R code to show what non-1:1 relationships look like in 
+the data, how they impact gene-based analyses like GSEA, and options
+for handling them.
+
+---------------
+
+## Load R Packages
+
+```{r load-pkgs}
+library(SomaDataIO)
+library(SomaEnrich)
+library(dplyr)
+library(tibble)
+```
+
+## Prepare for GSEA
+
+In pre-ranked GSEA, an ordered statistical metric is required, often
+derived from the results of differential expression analysis. This can be 
+pulled from the `SomaEnrich::t_tests` data set. The `r rank_metric` will be 
+used as the ranking metric - please note that this may not be the best metric 
+for your experiment, and is merely used here as an example.
+
+Entrez gene symbols will be used as vector names, to match the gene set
+networks already available in SomaEnrich. Below is a subset of the `t_tests`
+data set, sorted by |`r rank_metric`|:
+
+```{r t-tests-example}
+t_tests |>
+    select(SeqId, EntrezGeneSymbol, t_stat) |>
+    arrange(desc(abs(t_stat))) |>
+    head(n = 10)
+```
+
+Every `SeqId` in the above table is unique. However, some genes, like
+`r ex_gene_name` (`r ex_gene`), appear multiple times in the
+"EntrezGeneSymbol" column. This illustrates a 1:many (i.e. non-1:1)
+relationship between `r ex_gene` and `SeqIds` in the data.
+
+If Entrez gene symbols are solely used to identify each data point in the
+ranked vector, an input vector for GSEA could look like this:
+
+```{r ranks-duplicates}
+rank_vec <- t_tests$t_stat
+names(rank_vec) <- t_tests$EntrezGeneSymbol
+
+rank_vec[1:10]
+```
+
+In the top example entries alone, some gene names are
+seen more than once, and combined gene entities with a "|" character are
+present in the vector names. Both of these patterns are unique to
+SomaScan-derived data and can complicate the GSEA workflow. 
+
+In particular, the presence of duplicate entries may have unintended
+consequences for GSEA, if not corrected, as it violates one of the core
+assumptions of GSEA.
+
+
+## Assumptions of GSEA
+
+A critical assumption of the GSEA algorithm is that 1:1 mapping is
+present between ranked entries and biological entities, and that each gene in
+the ranked list is only represented once [@gsea-paper; @gsea-manual].
+Violations of this assumption can disproportionately weight genes during
+calculation of the enrichment score, resulting in the following undesirable
+effects:
+
+* Hits (highly-ranked genes found in a gene set) could be counted multiple times
+* Incidences of multiple counting could create inflated enrichment scores
+* Enrichment scores for small gene sets could be especially distorted
+
+The non-1:1 gene:SOMAmer Reagent relationships in the SomaScan menu
+stress this assumption when using SomaScan-derived ranking statistics for
+GSEA.
+
+
+## SOMAmer Reagent Targets
+
+In a SomaScan data set, SOMAmer Reagents and `SeqIds` have a
+1:1 relationship, where each `SeqId` uniquely identifies a single SOMAmer
+reagent. However, as described earlier in this document, *proteins* do not 
+necessarily have a 1:1 relationship with a
+single SOMAmer Reagent. In these cases, external identifiers like the UniProt 
+ID (or gene ID) may not fully distinguish the exact target structure of a 
+SOMAmer Reagent.
+
+For example, as observed earlier, the `r ex_gene` gene appears in the 11K
+SomaScan menu multiple times:
+
+```{r ex-gene-menu, echo=FALSE}
+ex_gene <- "KLK3"
+
+SomaDataIO::getAnalyteInfo(example_data_11k) |>
+    filter(EntrezGeneSymbol == ex_gene) |>
+    select(SeqId:EntrezGeneSymbol, -SeqIdVersion, -SomaId, -EntrezGeneID)
+```
+
+All 3 `SeqIds` in the above table are unique, but the other values are (for
+the most part) identical. In the `example_data_11k` ADAT, all these
+unique analytes are present, each with a distinct RFU measurement:
+
+```{r ex-gene-rfu, echo=FALSE}
+ex_analytes <- SomaDataIO::getAnalyteInfo(example_data_11k) |>
+    filter(EntrezGeneSymbol == ex_gene) |>
+    pull(AptName)
+
+select(example_data_11k, SampleId, all_of(ex_analytes)) |>
+    SomaDataIO::rm_rn() |>
+    head(n = 10) |>
+    tibble::tibble()
+```
+
+In `t_tests`, multiple analytes targeting `r ex_gene` were (after sorting)
+located near the bottom of the ranked gene vector.
+
+So, let's return to the example vector we made for pre-ranked GSEA. Proceeding
+with this vector as-is may have the following unintended effects:
+
+* `r ex_gene` appears multiple times in the ranked vector, potentially leading to over-representation of `r ex_gene` in the final GSEA results
+    * This effect applies to any other duplicated entities in the vector
+* The vector elements with "|"-delimited names will not match gene symbols in the available GO or MSigDB resources, and consequently will be counted as a "miss" in the enrichment score calculation, rather than a hit
+    * This can result in inaccurate counting of these highly-ranked entities in the final enrichment results
+
+Solutions for both of these points are implemented by SomaEnrich, and will be
+described in greater detail below.
+
+---------------
+
+
+# Solutions in SomaEnrich
+
+The functions in SomaEnrich automatically handle instances of 1:many 
+mapping between SOMAmer Reagents (and therefore, SomaScan measurements) 
+and external gene or protein identifiers.
+
+SomaEnrich provides functions that perform:
+
+1. Data cleaning operations, to split apart delimited identifiers that signify protein heterodimers
+1. Measurement filtering and selection, to resolve non-1:1 mapping for gene-based analyses like GSEA
+
+The following sections will explain how functions in SomaEnrich handle these
+scenarios.
+
+
+## Working with Heterodimers and "|" Delimiters
+
+The SomaScan menu contains instances where a "|" character is
+used to delineate two (or more) gene or protein identifiers. This notation
+indicates that a given SOMAmer Reagent binds a heterodimer protein or larger
+protein heterocomplex, where the protein subunits originate from different 
+genes. To fully capture this information in the menu, all genes with protein 
+products in the complex are separated by a
+delimiter character, typically "|".
+
+However, the biological knowledge bases typically used by popular pathway 
+analysis tools, like GO and KEGG, were developed for gene-centric data, and do 
+not contain this type of annotation. 
+
+When performing GSEA, all identifiers used for analysis inputs should be of
+consistent type, and in the same format. By default, SomaEnrich 
+uses Entrez gene symbols for both GO and MSigDB gene sets; therefore, the gene
+symbols in the ranked input vector must be compatible Entrez gene symbols.
+Because this heterodimer gene notation is unique to SomaScan, genes delimited
+by "|" will not be compatible with the entries in GO and MSigDB. Consequently,
+any gene in the input vector not found in the gene set will
+contribute to the negative increment of the running sum statistic, but will
+not be removed from the data set [@gsea-paper]. This can affect
+the calculation of the enrichment score - if a highly-ranked gene _should_
+contribute to the running sum, but can't be correctly matched to any member of
+the gene set, the enrichment contribution from that gene will not be adequately
+captured.
+
+To ensure consistency in gene symbols across both input ranks and gene sets,
+delimited identifiers are split prior to analysis (see the `split_ids` argument
+of `SomaEnrich::somaPrGSEA()`).
+
+Here's a preview of the first 10 rows of data, without the splitting operation:
+
+```{r gene-symbols}
+# Prior to split
+t_tests |>
+    select(AptName, EntrezGeneSymbol, t_stat) |>
+    head(n = 10)
+```
+
+And here is that same data post-split:
+
+```{r split-gene-symbols}
+t_tests_split <- t_tests |>
+    select(AptName, EntrezGeneSymbol, t_stat) |>
+    mutate(row_id = row_number()) |>
+    tidyr::separate_rows(EntrezGeneSymbol, sep = "\\|")
+
+head(t_tests_split, n = 12)
+```
+
+This splitting procedure can have the following effects:
+
+1. Splitting the heterodimers requires duplicating the ranking metric value, which can introduce ties to the ranked vector
+1. Splitting the heterodimers can contribute to instances of gene name duplication in the ranked input vector
+
+Let's use the table above to better illustrate the first point. The following
+analyte, `seq.4914.10`, maps to 3 Entrez gene symbols:
+
+```{r ex-heterodimer}
+t_tests |>
+    dplyr::select(AptName, SeqId, Target, EntrezGeneSymbol, t_stat) |>
+    filter(AptName == "seq.4914.10")
+```
+
+The string `CGA|CGB3|CGB7` is unlikely to be matched in any gene-based database,
+so the string must be split into its constituent parts:
+
+```{r splitting-heterodimers}
+t_tests |>
+    dplyr::select(AptName, SeqId, Target, EntrezGeneSymbol, t_stat) |>
+    filter(AptName == "seq.4914.10") |>
+    tidyr::separate_rows(EntrezGeneSymbol, sep = "\\|")
+```
+
+Now, if we were to use the `r rank_metric` as input into `somaPrGSEA()`,
+the input would look like this:
+
+```{r inputs-with-ties, echo=FALSE}
+t_tests |>
+    dplyr::select(AptName, EntrezGeneSymbol, t_stat) |>
+    filter(AptName == "seq.4914.10") |>
+    tidyr::separate_rows(EntrezGeneSymbol, sep = "\\|") |>
+    dplyr::select(-AptName) |>
+    tibble::deframe()
+```
+
+The genes are unique, but the actual values used for ranking the genes are the
+same. This can produce a warning during GSEA, stating that the ranking vector
+has ties. Essentially, these 3 elements can't be ranked properly, because they
+all have the same ranking value. While this is typically undesirable if it
+occurs in the raw, unmodified ranking vector, the decision to split
+heterodimers during pre-processing can itself create ties. This is _expected_
+behavior when splitting SomaScan heterodimers.
+
+
+## Multiple Targets Map to One Gene
+
+Let's move on to the second unintended effect of splitting heterodimers: it can
+contribute to instances of gene name duplication in the ranked input vector.
+This may result in >1 value per `AptName`, with a unique gene symbol
+for each value. Take `3032-11`, for example; prior to the split operation, it
+possesses one `r rank_metric` value:
+
+```{r single-aptname}
+filter(t_tests, AptName == "seq.3032.11") |>
+    select(AptName, EntrezGeneSymbol, t_stat)
+```
+
+Post-split, the `r rank_metric` value for `3032-11` is split across multiple
+rows.
+
+```{r split-aptname}
+filter(t_tests_split, AptName == "seq.3032.11")
+```
+
+Because genes like CGA can be mapped to >1 SOMAmer Reagent, the
+above step produces multiple `r rank_metric` values for CGA, when viewed in
+combination with the rest of the data set:
+
+```{r single-gene}
+filter(t_tests_split, EntrezGeneSymbol == "CGA")
+```
+
+All of these values are associated with the gene CGA, but it's best practice
+to not use this vector as-is for GSEA. To avoid duplication of gene 
+identifiers, only one `r rank_metric` value for CGA will be chosen. But why
+only choose one, and how should it be selected?
+
+
+## Selecting One Measurement per Gene
+
+In transcriptomics, it's common practice to combine transcript or probe-based
+measurements and sum them to obtain gene-level counts.
+When performing GSEA with SomaScan data, it may be tempting to apply this
+methodology and, for example, sum together all measurements from analytes
+mapping to CGA or `r ex_gene`. This would produce one single measurement for
+each gene and resolve the identifier duplication problem described previously.
+
+However, it is _not_ advised to collapse or aggregate analytes into a single
+entity based on their protein target or gene. Instead, it is standard practice
+to keep SomaScan measurements **distinct** whenever possible.
+
+If each SOMAmer Reagent is measuring a different isoform or region of a
+protein, collapsing these data points may lose valuable information about those
+protein regions. Instead, it is recommended to treat each analyte as an
+independent measurement, and select a single "best" measurement to
+be _representative_ of each protein (or, in this case, gene) when multiple
+measurements are present.
+
+But what constitutes the "best" measurement? This can can vary
+depending on experiment and ranking metric used for pre-ranked GSEA.
+SomaEnrich provides a few different methods to make this selection.
+
+Let's return to the `r ex_gene` example; we will sort the `r ex_gene` analytes
+by our chosen ranking metric (`r rank_metric`):
+
+```{r show-gene-measurements}
+filter(t_tests, EntrezGeneSymbol == ex_gene) |>
+    select(AptName, EntrezGeneSymbol, t_stat) |>
+    arrange(desc(t_stat))
+```
+
+The "top" `r ex_gene`-associated analyte (sorted by `r rank_metric`) is
+`r gene_ranked$AptName[1]`. If we follow the recommendation to retain one
+measurement per gene and arbitrarily choose the first occurrence, only this
+`r rank_metric` value for `r ex_gene` will be used for input into GSEA, and the
+others will be lost. However, this can have unintended consequences. What if
+we're interested in the value with the largest _magnitude_, regardless of sign?
+Or what if the selected ranking metric is a p-value? The same sorting method
+may not work for both p-values (where the smallest value is preferred) and fold
+change values (where the largest absolute value is preferred).
+
+Merely sorting in ascending/descending order and choosing the first occurrence
+may not return the expected result.
+
+
+## Selection Methods in SomaEnrich
+
+SomaEnrich performs this sorting and selection step under the hood in
+`somaPrGSEA()` via the `resolve_multimapping` argument. When
+`resolve_multimapping = TRUE` (the default), the function will create a
+catalog of all unique genes present in a ranked data frame, identify all
+SOMAmer Reagents associated with each gene, and select a single analyte based
+on a user-defined criteria. By default, the statistic with the largest absolute
+value is retained. This ensures that each protein target/gene is only
+represented once in the data set, **without** collapsing values to create a
+single summed measurement. 
+
+However, like mentioned previously, this sorting method may not be
+appropriate for all ranking metrics. The following measurement sorting and
+filtering methods are supported:
+
+- Filtering by **absolute value**  (the default): the largest absolute value is chosen (ignores sign)
+- Filtering by **maximum**: the maximum value is chosen
+- Filtering by **minimum**: the minimum value is chosen
+- Filtering by **rank**: the smallest rank is chosen using pre-sorted data
+
+For more complex sorting (i.e. using two or more sorting criteria), the "rank"
+method may be more appropriate. After sorting by the desired criteria, like a
+combination of FC and p-value in a single-sided test, a rank is assigned to the
+input values, using the order in which they were sorted in. The first value is
+ranked 1. In cases of multimapping, the value with the _lowest_ rank is
+retained.
+
+Please note that selection by "rank" and "minimum" can produce _different_
+results! Filtering by rank selects based on position in the input vector
+(given pre-sorting), while filtering by minimum selects based on actual numeric
+value, and can be impacted by the presence of negative values when the metric
+is signed. Similarly, depending on how the pre-sorting is done, "maximum" and
+"rank" can select either the same or different values. Ultimately, filtering
+by rank may lose information - the magnitude of difference in values is
+ignored, and proximity to the start of the vector is prioritized.
+Alternatively, if selecting by absolute value, magnitude of signal is
+prioritized, while directionality (i.e. sign) is lost.
+
+The chunk below shows how the available sorting options can identify
+different values for fictional `GENE_A`:
+
+```{r}
+gene_a <- c(GENE_A = 0.01, GENE_A = -0.5, GENE_A = 5, GENE_A = -10)
+
+max(gene_a)
+
+min(gene_a)
+
+max(abs(gene_a))
+
+sort(gene_a, decreasing = TRUE)[[1]] # "rank" option selects the 1st value when sorted
+```
+
+The code above highlights the importance of assessing which selection
+method is most appropriate for your data. Multiplied over hundreds of cases of
+non-1:1 mapping, the chosen measurement filtering method can have a notable
+impact on GSEA data.
+
+After applying the filtering technique described above to the
+example rank vector, the results should look like this:
+
+```{r clean-vector, echo=FALSE}
+final_rank_vec <- prepareRanks(stats = t_tests[[rank_metric]],
+                               features = t_tests$EntrezGeneSymbol,
+                               verbose = FALSE)
+
+print(head(final_rank_vec, n = 10))
+```
+
+No duplicate genes or "|"-delimited heterodimers remain in the preview of the
+ranking vector.
+
+This filtering procedure is performed for all genes in the input ranked
+vector, and the filtered vector will then be used as input for GSEA.
+
+The output of `somaPrGSEA()` will include this filtered and modified vector,
+for reference. 
+
+
+-------------
+
+# Summary
+
+* The SomaScan menu contains **non-1:1 relationships** between SOMAmer Reagents and their target proteins/genes, which can complicate gene-centric analyses like GSEA
+* **Delimited identifiers** (e.g., "GENE1|GENE2") must be split so each symbol can be properly matched to gene sets
+* **SomaLogic recommends keeping analyte measurements distinct** rather than collapsing or aggregating them by gene — this preserves valuable information about protein isoforms and regions
+* SomaEnrich automatically handles non-1:1 relationships by **selecting a single "best" measurement** per gene, rather than summing measurements together
+* **"Best"** measurement can be defined in various ways, and a few options are provided to do this automatically
+* The R functions `prepareRanks()`, `somaPrGSEA()`, and `somaORA()` are capable of performing these processing steps
+
+Please keep in mind that these processing steps are an *optional* feature, and
+ultimately you must decide if they are appropriate for your analysis.
+
+-------------
+
+# Questions
+
+If you have any additional questions about the SomaScan menu, we are here to
+help. Please reach out to us via:
+
+* GitHub [issues](https://github.com/SomaLogic/SomaEnrich/issues)
+* Global Scientific Engagement Team: <techsupport@somalogic.com>
+* General SomaScan inquiries: <support@somalogic.com>
+
+
+-------------
+
+# References
+

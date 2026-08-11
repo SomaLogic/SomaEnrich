@@ -1,0 +1,11 @@
+^SomaEnrich\-internal\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^README\.Rmd$
+^_pkgdown\.yml$
+^\.github$
+^docs$
+^pkgdown$
+^data-raw$
+^doc$
+^Meta$

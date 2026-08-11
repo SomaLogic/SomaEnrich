@@ -1,0 +1,50 @@
+Type: Package
+Package: SomaEnrich
+Title: Pathway Analysis Tools for SomaScan Data
+Version: 0.1.0
+Description: An R package providing pathway analysis tools for the 
+    SomaScan assay, a proteomics platform.
+Authors@R: c(
+    person(given = "Amanda", 
+           family = "Hiser", 
+           role = c("aut", "cre"), 
+           email = "ahiser@illumina.com",
+           comment = c(ORCID = "0000-0002-2121-1873")),
+    person(given = "Illumina, Inc.", 
+           role = c("cph", "fnd"))
+    )
+Copyright: Illumina, Inc. 2026
+License: MIT + file LICENSE
+URL: https://somalogic.github.io/SomaEnrich/, https://somalogic.com
+BugReports: https://github.com/SomaLogic/SomaEnrich/issues
+Depends: 
+    R (>= 4.4.0)
+Imports:
+    fgsea,
+    ggplot2,
+    patchwork,
+    rlang,
+    scales,
+    SomaDataIO (>= 6.4.0),
+    stringr,
+    tidyr,
+    withr
+Suggests:
+    cli,
+    dplyr,
+    knitr,
+    limma,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    tibble
+VignetteBuilder: 
+    knitr
+Encoding: UTF-8
+Language: en-US
+LazyData: true
+LazyDataCompression: gzip
+LazyLoad: true
+Config/testthat/edition: 3
+Config/Needs/website: tidyverse/tidytemplate
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.0.0

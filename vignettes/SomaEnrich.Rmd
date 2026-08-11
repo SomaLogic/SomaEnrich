@@ -1,0 +1,566 @@
+---
+title: "Introduction to SomaEnrich"
+output: rmarkdown::html_vignette
+bibliography: references.bib
+vignette: >
+  %\VignetteIndexEntry{Introduction to SomaEnrich}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+library(SomaEnrich)
+library(SomaDataIO)
+library(dplyr)
+library(fgsea)
+library(limma)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+t_tests <- dplyr::arrange(t_tests, desc(abs(t_stat)), fdr)
+
+ex_gene <- "KLK3"
+ex_gene_name <- "Kallikrein-related peptidase 3"
+rank_metric <- "log2_fc"
+```
+
+_This R package is an in-development resource and is research use only._
+
+-----
+
+The `SomaEnrich` R package provides tools to perform standard pathway enrichment
+analyses, like over-representation analysis (ORA) and gene set enrichment
+analysis (GSEA), with SOMAmer<sup>&reg;</sup> Reagent-based SomaScan data. 
+
+Why create this tool when there are so many pre-existing pathway analysis 
+resources? The currently available ecosystem of software and R packages were 
+often designed for (and derived from) transcriptomic data, and may not be as 
+readily compatible with SomaScan data. SomaScan is a proteomics technology, and 
+the SomaScan data file (`.adat`) is centered around SomaScan assay analytes 
+(SOMAmer Reagents). This means that SomaScan measurements are representative of
+SOMAmer Reagent *protein* targets, rather than transcribed genes, as they would
+in transcriptomic data.
+
+The tools in this package account for SomaScan-specific analysis complexities
+that stem from this key difference in technologies.
+
+
+---------------
+
+# Main Features
+
+The functions in this package can be divided into a few categories:
+
+* Identifier mapping utilities
+    + map SomaScan analytes to gene identifiers, and vice versa
+    (`apt2gene()` & `gene2apt()`)
+    + convert entire pathways of genes to SomaScan identifiers
+    (`genePath2aptPath()` and `aptPath2genePath()`)
+
+* Data wrangling resources
+    + convert an `AptName`-centric `data.frame` into a gene-centric
+    `data.frame` (`collapseAptData()`)
+    + convert a data frame into a list of vectors, with one list element per
+    unique group (`df2list()`)
+
+* Enrichment analysis
+    + prepare SomaScan statistical data for gene-based enrichment analysis (`prepareRanks()`)
+    + perform pre-ranked gene set enrichment analysis (GSEA) using the `fgsea`
+    algorithm (`somaPrGSEA()`)
+    + perform over-representation analysis (ORA) using a hypergeometric test
+    (`somaORA()`)
+
+* Data visualization tools
+    + create an enrichment plot from a GSEA results table (`plotES()`)
+    + create a bubble plot from an ORA results table (`plotBubble()`)
+
+Below is a basic walkthrough illustrating how SomaEnrich functions can be
+used to perform pre-ranked GSEA, using differential expression results from
+SomaScan assay data.
+
+
+### A Note on ORA vs. GSEA
+
+Both ORA and GSEA are widely used approaches for pathway enrichment, and both
+are supported by SomaEnrich. In general:
+
+- ORA tests whether a pre-selected set of features (e.g. differentially
+expressed analytes above some significance or fold-change threshold) overlaps
+with known pathways more than would be expected by chance. The process is
+relatively straightforward: define a threshold, identify features that pass it,
+and run a hypergeometric test. However, ORA requires an arbitrary cutoff to
+define the feature list. Because of this requirement, ORA can be sensitive to
+the choice of threshold.
+
+- GSEA (in this case, pre-ranked) operates on a ranked list of _all_ measured
+features, without applying a significance cutoff. Pre-ranked GSEA evaluates
+whether the members of a given gene set tend to cluster toward the top or
+bottom of a ranked list.
+
+This vignette primarily focuses on GSEA because it requires
+more considerations and pre-processing steps for SomaScan specifically. Please 
+reference `?somaORA` for examples of performing ORA with SomaScan-derived
+differential expression data.
+
+
+---------------
+
+# Example Workflow
+
+## Getting Started
+
+First, we need to load the R packages required for this vignette:
+
+```{r load-pkgs, results='hide'}
+library(dplyr)
+library(fgsea)
+library(limma)
+library(SomaDataIO)
+```
+
+A requirement of pre-ranked GSEA is a numeric vector of statistical results
+that can be used to rank genes. This workflow assumes that some ranking
+procedure, like differential expression analysis, has already been performed
+using data from a pre-processed SomaScan ADAT. Example ADATs can be obtained
+from the 
+[SomaLogic-Data](https://github.com/SomaLogic/SomaLogic-Data) GitHub
+repository.
+
+For more information about pre-processing your ADAT, please see the
+[SomaDataIO Pre-Processing article](https://somalogic.github.io/SomaDataIO/articles/pre-processing.html).
+
+For an example differential expression workflow (via t-test), please see the
+[SomaDataIO Two-Group Comparison workflow](https://somalogic.github.io/SomaDataIO/articles/stat-two-group-comparison.html).
+
+A differential expression results data set, called `t_tests`, is available as a
+data object in `SomaEnrich`. The `t_tests` data set will be used as the
+starting point for this analysis. `t_tests` was created by comparing two
+groups, males and females, using the `Sex` variable from the
+`SomaEnrich::example_data_11k` ADAT. See `?t_tests` for more information.
+
+```{r preview-t-tests}
+head(t_tests, n = 10)
+```
+
+Because `Sex` was used to compare these groups, a number of sex-associated
+proteins are seen at the top of the t-test results, when sorted by `|t_stat|`.
+
+
+## Selecting Ranking Metrics
+
+SomaEnrich performs GSEA via the `somaPrGSEA()` function, which uses the
+algorithm from the 
+[fgsea](https://bioconductor.org/packages/release/bioc/html/fgsea.html)
+R package under the hood. Like fgsea,
+`SomaEnrich::somaPrGSEA()` requires an input statistic to rank the features.
+
+Any numeric statistic can be used as a ranking metric, including
+test statistics, measures of significance (-log10(p-value)), or
+signed/unsigned metrics measuring association of phenotype to analyte (fold
+change or log2 fold change). However, because the statistic will be sorted in
+descending order during calculation of the enrichment score, metrics in which
+higher values = stronger signal are often used. The best ranking metric depends
+on your data, experiment, and/or analysis question. See
+[GSEA metrics for ranking genes](https://docs.gsea-msigdb.org/#GSEA/GSEA_User_Guide/#metrics-for-ranking-genes)
+for more details.
+
+For the purposes of this vignette, we will use the `r rank_metric` as a ranking
+variable. Please note that this may not be the best metric for your experiment,
+and is merely used here as an example.
+
+We can create the GSEA input rank vector from the `t_tests` object,
+using the `r rank_metric` column with values calculated for each analyte:
+
+```{r create-rank-df}
+rank_vec <- t_tests$log2_fc
+
+names(rank_vec) <- t_tests$EntrezGeneSymbol
+
+rank_vec[1:10]
+```
+
+Gene symbols/identifiers _or_ SomaScan `AptNames` may be used as names for the
+ranking statistic vector. However, additional steps may be required when using
+`AptNames`, and these will be described in a later section of this vignette.
+
+
+## Resolving Non-1:1 Relationships
+
+You may have noticed that the names of the `rank_vec` object above contain
+duplicate values; for example, `r ex_gene` (`r ex_gene_name`) is represented
+more than once in the first 10 elements of the vector, and CGA (glycoprotein
+hormones alpha polypeptide) is represented multiple times in different 
+"|"-delineated strings. If you are accustomed to working with gene-level data, 
+this duplication may seem strange. These are instances of non-1:1 mapping 
+(i.e. one identifier maps to >1 values) between
+SOMAmer Reagents (with `SeqId` identifiers) and canonical protein or
+gene target identifiers.
+
+There are a variety of reasons why these entities may not have a 1:1
+relationship. In some instances, a SOMAmer Reagent binds a heterodimer protein
+(or larger heterocomplex), where protein subunits originate from different
+genes. In other cases, multiple SOMAmer Reagents were developed for the same
+protein target, or multiple proteoforms have a common gene product identifier.
+
+Take `r ex_gene` as an example:
+
+```{r ex-gene-targets}
+filter(t_tests, EntrezGeneSymbol == "KLK3") |>
+  dplyr::select(AptName:UniProt, log2_fc)
+```
+
+Multiple SOMAmer Reagents were developed for the `r ex_gene` protein target, as
+seen in the table above for `r ex_gene`. All SOMAmer Reagents have a
+unique SomaScan-specific identifier (`SeqId`), but in this case multiple
+reagents possess the same gene and protein identifiers. This means that, if
+we were only to use the "EntrezGeneSymbol" and "log2_fc" information to make a
+named input vector to GSEA, we would see duplicate gene names in the vector.
+
+The GSEA algorithm requires that the input ranking vector be comprised of only
+**unique** values. This necessitates an extra pre-processing step to resolve
+the duplication described here. 
+
+Many functions in SomaEnrich select only **one** assay analyte to
+represent each gene in enrichment analyses. The ideal method to select this
+analyte can vary, depending on the ranking metric used; by default, the analyte
+with the largest |`r rank_metric`| would be selected. This ensures that the
+measurement from the analyte with the greatest association to the biological
+feature of interest is retained.
+
+This processing step is handled by the `prepareRanks()` function, which is also
+called under the hood by `somaPrGSEA()`. This important step allows
+proteomic SomaScan data to be adapted for gene-based analysis
+workflows. For more information about this procedure, and for more detailed
+descriptions of these non-1:1 relationships, please reference the other package
+vignette via `browseVignettes("SomaEnrich")`.
+
+With `prepareRanks()`, we can create a unique statistical vector that is
+suitable for input to GSEA:
+
+```{r prep-ranks, message=TRUE}
+prepped_ranks <- prepareRanks(stats     = t_tests$log2_fc,
+                              features  = t_tests$EntrezGeneSymbol,
+                              split_ids = TRUE,            # Default
+                              resolve_multimapping = TRUE, # Default
+                              resolve_method = "abs")      # Default
+
+head(prepped_ranks, n = 10)
+
+# Only 1 KLK3 value remaining
+which(names(prepped_ranks) == "KLK3")
+
+# No gene name duplications
+any(grepl("\\|", names(prepped_ranks)))
+```
+
+Only one value is present for gene KLK3, and all heterodimers or complexes have 
+been split into their constituent parts. The `prepped_ranks` vector is ready for
+pre-ranked GSEA.
+
+As mentioned previously, this same function is called under the hood in
+`somaPrGSEA()`, but `prepareRanks()` enables easy access to this processed
+ranking metric _without_ performing GSEA, and the output can be used for other
+gene-based analyses.
+
+
+## Running Pre-Ranked GSEA
+
+To perform GSEA with SomaEnrich, the following inputs are required:
+
+1. A named vector of ranking statistics (`rank_vec`) with one measurement per gene
+1. Biological networks or gene sets to interrogate for enrichment
+
+
+### Selecting Gene Sets
+
+The SomaEnrich package provides networks from both the Gene Ontology (GO) and
+the Molecular Signatures Database (MSigDB). The default
+network used in `somaPrGSEA()` is GO Biological Process (BP).
+A full list of available networks and a short description of each collection
+can be found via `?somaPrGSEA()`.
+
+Please note that only _one_ biological network can be selected.
+Mixing networks and/or subcollections can inflate and distort the null
+distribution, because the gene sets differ wildly in size, redundancy, and
+biological intent [@gsea-paper]. Additionally, selecting only one collection
+helps keep processing time down, while also avoiding over-testing as a
+consequence of performing too many statistical tests on large numbers of
+gene sets.
+
+
+### Putting it All Together
+
+We will run pre-ranked GSEA with our `r rank_metric` vector, using GO BP for
+enrichment.
+
+```{r run-gsea, message=TRUE}
+gsea_res <- somaPrGSEA(ranks = prepped_ranks,
+                       resource = "bp")
+```
+
+A few messages will be produced when this function is run interactively:
+
+* When `split_ids = TRUE` (the default), heterodimers are split into multiple values, one for each gene/protein in the complex, and this can create ties in the ranked input vector
+* When `resolve_multimapping = TRUE` (the default), duplicate gene measurements will be filtered, selecting one value for retention (in cases of non-1:1 mapping) and other values will be dropped from the ranked input vector (Note: this may be outputted by `prepareRanks()` in a previous step)
+
+This ensures that the names of the `rank_vec` are unique, and that only one
+measurement per gene is used for GSEA.
+
+The output contains two objects:
+
+* A `data.frame` object containing the results of GSEA, with one row per pathway
+* A vector of the ranks used as input into GSEA, which may differ from the input ranks (reference `prepareRanks()` for more details)
+
+```{r view-gsea-results}
+summary(gsea_res)
+
+head(gsea_res$final_ranks)
+
+gsea_res$results |>
+  dplyr::select(-leadingEdge) |>
+  head(n = 10)
+```
+
+Descriptions of what each column contains can be found via `?somaPrGSEA()`.
+As expected, some of the top enriched pathways are sex-related. Column
+descriptions for `pval`, `padj`, `ES`, and `NES` can be found in
+`?somaPrGSEA()`.
+
+Let's take a closer look at the `leadingEdge` column, which was removed from
+the preview above:
+
+```{r leading-edge-col}
+filter(gsea_res$results, pathway_id == "GO:0022602") |>
+    pull(leadingEdge)
+```
+
+The values in `leadingEdge` are the leading edge genes, i.e.
+the core subset of features that account for the observed enrichment signal in
+that gene set (see the 
+[original GSEA software documentation](https://docs.gsea-msigdb.org/#GSEA/GSEA_User_Guide/#running-a-leading-edge-analysis)
+for more details about leading edge analysis). So, in the example above, 
+the leading edge genes were found to be concentrated toward the top of the
+`rank_vec` ranked list for the pathway GO:0022602 ("ovulation cycle process").
+
+Remember the sex-associated analytes in the `t_tests` data set that were
+identified earlier in this vignette? Genes associated with these analytes, like
+CGA and FSHB, were frequently identified as leading edge genes.
+
+```{r leading-edge-count}
+# Add column indicating if the leading edge subset contain CGA/FSHB
+gsea_res$results |>
+    mutate(cga_fshb_le = grepl("CGA|FSHB", leadingEdge)) |>
+    select(pathway, leadingEdge, cga_fshb_le) |>
+    head(n = 10)
+```
+
+These sex-associated genes drive a large portion of the enrichment identified
+in each of these gene sets.
+
+Next, let's look at the set size columns:
+
+```{r set-size-col}
+select(gsea_res$results, pathway, contains("size")) |>
+    head()
+```
+
+These columns illustrate how many genes in each gene set were filtered from the
+set, _prior_ to running GSEA. This is a standard pre-processing step for GSEA;
+genes present in each gene set that are not found in the `ranks` vector are
+removed prior to enrichment. This can have a small or large impact on the set
+size, depending on the content of the set.
+
+
+### AptNames Instead of Gene IDs
+
+As mentioned in the previous section, GSEA can be run using SomaScan `AptNames`
+rather than gene IDs, if desired. To do so, the vector provided to `ranks` must
+be named with `AptNames`:
+
+```{r create-apt-vec}
+apt_vec <- t_tests$log2_fc
+names(apt_vec) <- t_tests$AptName
+
+head(apt_vec)
+```
+
+Note that `SeqIds` are *not* accepted as vector names - the R-compatible
+`AptName` format (`seq.1234.56`) must be used. If starting from `SeqIds`, the
+`SomaDataIO::seqid2apt()` function can be used to convert between the two
+formats. See `?SomaDataIO::seqid2apt()` for more details.
+
+Additionally, the column metadata from a `soma_adat` object will be required as
+input. The information in the metadata will be used to map genes from GO and
+MSigDB to SomaScan assay identifiers .
+
+The column metadata can be extracted from a `soma_adat` using
+`SomaDataIO::getAnalyteInfo()`:
+
+```{r column-meta}
+col_meta <- SomaDataIO::getAnalyteInfo(example_data_11k)
+
+head(col_meta)
+```
+
+When running `somaPrGSEA()` with `AptNames`, is it important to set
+`use_aptnames = TRUE` _and_ provide a data frame of column meta data to
+`col_meta_df`. This will produce a progress bar that tracks the
+conversion of GO BP terms from their original gene identifiers
+to SomaScan `AptNames`, so gene set enrichment can be performed in aptamer
+space (i.e. using `AptNames` in the ranking vector and `AptName`-containing
+pathways).
+
+Once all gene sets have been converted to `AptNames`, GSEA will be performed
+using the ranked `AptNames`.
+
+```{r run-apt-gsea, message=TRUE}
+gsea_res_apt <- somaPrGSEA(ranks        = apt_vec,
+                           col_meta_df  = col_meta, # Required
+                           use_aptnames = TRUE)     # Required)
+
+gsea_res_apt$results |>
+  dplyr::select(resource_code:NES)
+```
+
+Because GSEA was performed in aptamer space, the `leadingEdge` column contains
+leading edge **analytes**, rather than genes.
+
+```{r apt-gsea-leading-edge}
+gsea_res_apt$results |>
+  dplyr::select(leadingEdge)
+```
+
+
+## Visualizing Results
+
+`SomaEnrich` has a few built-in functions for visualizing ORA and GSEA results.
+`plotES()` will create a plot of the enrichment score for any gene set,
+using the results of `somaPrGSEA()`. The plot is very similar to that
+produced by the Broad's original GSEA software, with the option to
+annotate the leading edge genes on the enrichment score line.
+
+Only one gene set can be plotted at a time. Let's use the same example gene
+set as the previous section, "ovulation cycle":
+
+```{r plot-gsea-res, fig.width=8, fig.height=6}
+plotES("female gamete generation",
+       gsea_results = gsea_res, 
+       show_leading_edge = TRUE)
+```
+
+The dots annotated on the line at the top of the plot represent each of the
+leading edge genes in the gene set.
+When the NES value is positive, the leading edge genes are found at the left of
+the plot. However, if the NES was negative, we'd see these genes on the right
+side of the plot, _after_ the apex of the enrichment line.
+
+```{r}
+plotES("amino acid biosynthetic process",
+       gsea_results = gsea_res,
+       show_leading_edge = TRUE)
+```
+
+
+---------------
+
+# Using Custom Gene Sets
+
+If you want to use a biological network that is not already available in
+SomaEnrich, you will need to:
+
+1) Read in the network from a GMT file or other resource
+1) Create a named list containing the new gene sets/pathways of interest
+
+The output of the steps above can be provided to the `cust_paths` argument of
+`somaPrGSEA()` or `somaORA()`. This section of the vignette will
+describe how to do both steps above.
+
+
+### GMT Files
+
+A GMT file can easily be read in and provided to `somaPrGSEA()` using tools
+from the `fgsea` package.
+
+The `fgsea::gmtPathways()` function allows the user to read the contents of any
+GMT file into R as a named list, with each list item corresponding to a
+pathway from the GMT file. The example GMT file in SomaEnrich can be used to
+illustrate this:
+
+```{r ingest-gmt}
+gmt_file <- system.file("extdata", "msigdb_c2_reactome.gmt",
+                        package = "SomaEnrich")
+
+gmt_list <- fgsea::gmtPathways(gmt_file)
+
+head(gmt_list)
+```
+
+This list can be directly provided as-is to `somaPrGSEA()`:
+
+```{r run-gsea-reactome}
+gsea_cust <- somaPrGSEA(ranks = rank_vec,
+                        cust_paths = gmt_list)
+
+head(gsea_cust$results, n = 10)
+```
+
+These pathways can be visualized with the same functions as the built-in GO and
+MSigDB resources. However, when using custom pathways, the `gmt_list` object
+_must_ be provided to the `cust_path` argument:
+
+```{r plot-cust-list, fig.width=7, fig.height=6}
+plotES("REACTOME_G_ALPHA_S_SIGNALLING_EVENTS",
+       gsea_res = gsea_cust,
+       cust_path = gmt_list,
+       show_leading_edge = TRUE)
+```
+
+
+## KEGG pathways
+
+Currently, only GO and MSigDB networks are available in SomaEnrich. However,
+other networks, like KEGG, that are not provided by SomaEnrich can still be
+used as input to `SomaEnrich::somaPrGSEA()`. There are a number of tools
+available to work with KEGG data in R; the example below will describe how
+to use pathway analysis functions from the `limma` R package to retrieve KEGG
+pathway information.
+
+```{r load-kegg-content}
+# Retrieve full list of available human KEGG pathways
+kegg_content <- limma::getGeneKEGGLinks("hsa")
+
+head(kegg_content)
+```
+
+This data frame must be converted to a list object for input into
+`somaPrGSEA()`:
+
+```{r make-kegg-list}
+kegg_list <- df2list(kegg_content,
+                     name_col  = "PathwayID",
+                     value_col = "GeneID")
+
+length(kegg_list)
+
+head(kegg_list)
+```
+
+From this point, the `kegg_list` object can be provided to `somaPrGSEA()`
+using the `cust_path` argument, as shown previously.
+
+---------------
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```
+
+
+-------------
+
+# References
