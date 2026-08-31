@@ -423,7 +423,8 @@ gsea_res_apt <- somaPrGSEA(ranks        = apt_vec,
                            use_aptnames = TRUE)     # Required)
 
 gsea_res_apt$results |>
-  dplyr::select(resource_code:NES)
+    dplyr::select(resource_code:NES) |>
+    slice_head(n = 20)
 ```
 
 Because GSEA was performed in aptamer space, the `leadingEdge` column contains
@@ -431,7 +432,8 @@ leading edge **analytes**, rather than genes.
 
 ```{r apt-gsea-leading-edge}
 gsea_res_apt$results |>
-  dplyr::select(leadingEdge)
+    pull(leadingEdge) |>
+    head(n = 5)
 ```
 
 
