@@ -1,0 +1,206 @@
+# Prepare Ranking Metrics for SomaScan-Based Enrichment Analyses
+
+Resolves instances of identifier duplication in SomaScan datasets,
+typically resulting from many-to-one relationships between SOMAmer
+Reagents and their protein targets. This duplication is often
+encountered when preparing a statistical ranking metric for pre-ranked
+GSEA, or (more generally) converting SomaScan analyte
+measurements/statistics to the gene level.
+
+This function will ensure that the provided data only has one numeric
+value per unique feature (typically genes), and in cases of duplication,
+a single value will be selected to represent each gene.
+
+## Usage
+
+``` r
+prepareRanks(
+  stats,
+  features,
+  split_ids = TRUE,
+  resolve_multimapping = TRUE,
+  resolve_method = c("abs", "min", "max", "rank"),
+  verbose = interactive()
+)
+```
+
+## Arguments
+
+- stats:
+
+  Vector of a numeric statistic. This vector will be used to rank
+  features, according to the value of the statistic. Any numeric metric
+  may be used (t-statistic, p-value, fold change, etc.). When
+  `resolve_method = "rank"`, the most important or highly valued
+  features should be sorted *first*. This may require values to be
+  ordered in ascending or descending order, depending on the metric
+  used. For example, p-values should be sorted in ascending order, with
+  smaller values indicating higher importance, while fold-change values
+  could be sorted in descending order, with larger positive values
+  indicating higher importance.
+
+- features:
+
+  Character. Identifiers that correspond to the statistical metric in
+  `stats`, often SomaScan `AptNames` or genes.
+
+- split_ids:
+
+  Logical. If the identifiers used for the statistical metric contain
+  heterodimers (features separated by a delimiter, like
+  `"GENE1|GENE2"`), should the heterodimers be split into individual
+  components, like `c("GENE1", "GENE2")`? If TRUE (the default), the
+  final ranking metric will contain duplicated numeric values, one for
+  each unique member of the heterodimer. See `Details` and examples.
+
+- resolve_multimapping:
+
+  Logical. Should many-to-one relationships between SOMAmer Reagents and
+  genes (i.e. multiple SOMAmer Reagents mapping to the same gene) in the
+  statistical ranking metric be resolved? Default is TRUE. Only one
+  entry per gene will be retained, based on the `resolve_method`
+  selection criteria. See `Details`.
+
+- resolve_method:
+
+  Character. Selection method for choosing a single representative value
+  for a gene when non-1:1 mapping exists between analytes and genes.
+  Choose one of:
+
+  "abs"
+
+  :   (Default) Selects the entry with the largest absolute value per
+      gene. Recommended for signed statistics (e.g. t-statistic, log
+      fold change) in bidirectional analyses — unlike `"rank"` or
+      `"max"`, it preserves strong signal symmetrically at both the top
+      and bottom of the ranking vector.
+
+  "min"
+
+  :   Selects the entry with the minimum numeric value, including
+      negative values. Use for metrics where smaller values are better
+      (e.g., p-values) or when smaller/negative signed values are
+      important.
+
+  "max"
+
+  :   Selects the entry with the maximum numeric value. Use for metrics
+      where larger values are preferred (e.g. positive one-sided tests).
+
+  "rank"
+
+  :   Selects the entry with the smallest positional index (i.e. first
+      occurrence in the input vector). Use when input is pre-sorted by
+      one or more variables, and the "best" entry is the one closest to
+      position 1. This means that the selected entry depends on the
+      order of the input, so `ranks` must be **pre-sorted** to place
+      values of highest importance first.
+
+- verbose:
+
+  Logical. Should progress messages be printed to the console? By
+  default, messages will only be shown in interactive R sessions. Set to
+  TRUE to show all messages, and FALSE to silence messages.
+
+## Value
+
+A named numeric vector of statistics, with unique element names. This
+vector is suitable for input into
+[`somaPrGSEA()`](https://somalogic.github.io/SomaEnrich/reference/somaPrGSEA.md),
+or other gene-based analytical methods.
+
+## SOMAmer Reagent and Target Relationships
+
+Non-1:1 mapping between SOMAmer Reagents and their targets is a known
+characteristic of the SomaScan menu. This can lead to a single gene
+being associated with multiple statistical metric results. For example,
+prostate-specific antigen (PSA) and its associated gene, KLK3, are
+targeted by 4 SOMAmer Reagents in the 7K SomaScan menu. This means that,
+*at the gene level*, KLK3 has 4 RFU values in any 7K SomaScan data set.
+
+In pre-ranked GSEA, however, values in the input ranking data must be
+unique. Therefore, the input data cannot contain 4 measurements for
+PSA - only one must be chosen to be representative of the KLK3 gene.
+There are many acceptable selection methods, and the most appropriate
+one will depend on your question and/or experimental design. See the
+analyte-to-gene mapping vignette
+(`browseVignettes(package = "SomaEnrich")`) for more details.
+
+## Ties in the Ranking Metric
+
+When a SOMAmer Reagent targets a protein heterodimer, the genes
+associated with that heterodimer are collapsed using a delimiter
+character (ex. "CGA\|CGB3\|CGB7") for concise display in the SomaScan
+menu. However, when performing GSEA, the collapsed and delimited gene
+identifier must be split into individual gene symbols, so each symbol
+can be matched against gene-based databases like GO or MSigDB. Splitting
+a single analyte into multiple genes requires duplicating the ranking
+metric value across all resultant genes (ex. `c("GENE1|GENE2" = 1)`
+becomes `c("GENE1" = 1, "GENE2" = 1`). This can introduce ties into the
+ranked input vector; however, this is *expected* behavior. The tied
+values indicate that there is insufficient information to rank the genes
+that were co-measured as part of the same protein complex. See the
+analyte-to-gene mapping vignette
+(`browseVignettes(package = "SomaEnrich")`) for more details.
+
+## Examples
+
+``` r
+# In some cases, multiple SomaScan analytes map to the same gene ID
+example_apt_vec <- c("seq.13699.6", "seq.21232.39", "seq.4330.4", "seq.8468.19")
+apt2gene(example_apt_vec, SomaDataIO::getAnalyteInfo(example_data_11k))
+#> [1] "KLK3" "KLK3" "KLK3" "KLK3"
+
+# All KLK3 analytes are present in the t-tests results data, each with
+# distinct t-test statistics and significance values
+t_tests[t_tests$EntrezGeneSymbol == "KLK3", ]
+#> # A tibble: 4 × 12
+#>   AptName      SeqId  Target EntrezGeneSymbol UniProt formula   t_test 
+#>   <chr>        <chr>  <chr>  <chr>            <chr>   <list>    <list> 
+#> 1 seq.4330.4   4330-4 PSA    KLK3             P07288  <formula> <htest>
+#> 2 seq.13699.6  13699… PSA    KLK3             P07288  <formula> <htest>
+#> 3 seq.21232.39 21232… BPSA   KLK3             P07288  <formula> <htest>
+#> 4 seq.8468.19  8468-… PSA    KLK3             P07288  <formula> <htest>
+#> # ℹ 5 more variables: t_stat <dbl>, p.value <dbl>, fdr <dbl>,
+#> #   fc <dbl>, log2_fc <dbl>
+
+# Pre-ranked GSEA input must contain *one* unique ranking value per gene -
+# using the following as input will be problematic
+ranks <- t_tests$t_stat
+names(ranks) <- t_tests$EntrezGeneSymbol
+head(ranks, n = 10) # LEP appears multiple times
+#>           PZP      CGA|FSHB         ENPP2       CGA|LHB CGA|CGB3|CGB7 
+#>     14.285305      9.528913      8.862328      8.709291      7.895289 
+#>           NTM           LEP           LEP           NTM         ROBO2 
+#>      6.520689      5.735386      5.665633      5.591873      5.535341 
+
+# Identifiers used for the input vector must match those in the gene sets.
+# SomaScan contains heterodimers that won't match non SomaScan-derived
+# gene sets
+ranks[grepl("\\|", names(ranks))][1:5]
+#>          CGA|FSHB           CGA|LHB     CGA|CGB3|CGB7 
+#>          9.528913          8.709291          7.895289 
+#>           LTA|LTB C1GALT1|C1GALT1C1 
+#>          4.450522          3.218453 
+
+# prepareRanks() solves both of these problems.
+# The default resolve_method = "abs" selects the analyte with the largest
+# absolute value per gene. No pre-sorting required.
+unique_ranks <- prepareRanks(stats = t_tests$t_stat,
+                             features = t_tests$EntrezGeneSymbol)
+
+head(unique_ranks)
+#>       PZP       CGA      FSHB     ENPP2       LHB      CGB3 
+#> 14.285305  9.528913  9.528913  8.862328  8.709291  7.895289 
+any(duplicated(names(unique_ranks)))
+#> [1] FALSE
+
+# Caveat: splitting up heterodimers can introduce ties.
+# All genes split from the original heterodimer will have the same value
+ranks["CGA|FSHB"]
+#> CGA|FSHB 
+#> 9.528913 
+unique_ranks[c("CGA", "FSHB")]
+#>      CGA     FSHB 
+#> 9.528913 9.528913 
+```
