@@ -4,12 +4,13 @@
 #' features on the running enrichment score curve.
 #'
 #' @param x Character or integer. The pathway name _or_ row index of 
-#'   `gsea_results` to use for creating the plot and extracting leading edge 
-#'   features. Default is 1 (first row). If a character, must match a pathway
-#'   name in the "pathway_name" column of `gsea_results`.
-#' @param gsea_results A `data.frame` of GSEA results from [somaPrGSEA()]. 
-#'   The `leadingEdge` column will be used to identify and annotate leading 
-#'   edge features on the plot. The `resource_id` column will be used to
+#'   `gsea_results$results` to use for creating the plot and extracting leading
+#'   edge features. Default is 1 (first row). If a character, must match a
+#'   pathway name in the "pathway" column of `gsea_results$results`.
+#' @param gsea_results The list output of [somaPrGSEA()], containing a
+#'   `results` data frame and `final_ranks` vector. The `leadingEdge` column
+#'   of `results` will be used to identify and annotate leading edge
+#'   features on the plot. The `pathway_id` column will be used to
 #'   retrieve pathway members. If a custom pathway was used for GSEA, the
 #'   pathway must be provided to `cust_path`.
 #' @param cust_path Optional. A vector of gene identifiers (gene symbols 

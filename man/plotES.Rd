@@ -20,13 +20,14 @@ plotES(
 }
 \arguments{
 \item{x}{Character or integer. The pathway name \emph{or} row index of
-\code{gsea_results} to use for creating the plot and extracting leading edge
-features. Default is 1 (first row). If a character, must match a pathway
-name in the "pathway_name" column of \code{gsea_results}.}
+\code{gsea_results$results} to use for creating the plot and extracting leading
+edge features. Default is 1 (first row). If a character, must match a
+pathway name in the "pathway" column of \code{gsea_results$results}.}
 
-\item{gsea_results}{A \code{data.frame} of GSEA results from \code{\link[=somaPrGSEA]{somaPrGSEA()}}.
-The \code{leadingEdge} column will be used to identify and annotate leading
-edge features on the plot. The \code{resource_id} column will be used to
+\item{gsea_results}{The list output of \code{\link[=somaPrGSEA]{somaPrGSEA()}}, containing a
+\code{results} data frame and \code{final_ranks} vector. The \code{leadingEdge} column
+of \code{results} will be used to identify and annotate leading edge
+features on the plot. The \code{pathway_id} column will be used to
 retrieve pathway members. If a custom pathway was used for GSEA, the
 pathway must be provided to \code{cust_path}.}
 
