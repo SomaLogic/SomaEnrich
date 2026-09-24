@@ -11,8 +11,11 @@ data prior to pathway analysis, as well as detailed documentation
 describing the unique steps required to perform these operations with
 proteomic data (as opposed to genomic data).
 
-For more information about SomaScan data files (i.e. the ADAT, or
-`.adat` file) and their format, please see the
+The full documentation of `SomaEnrich`, including function help and
+package vignettes, can be viewed on the [package
+website](https://somalogic.github.io/SomaEnrich/). For more information
+about SomaScan data files (i.e. the ADAT, or `.adat` file) and their
+format, please see the
 [SomaLogic-Data](https://github.com/SomaLogic/SomaLogic-Data) GitHub
 repository.
 

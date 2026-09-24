@@ -1024,7 +1024,7 @@ using the `cust_path` argument, as shown previously.
 sessionInfo()
 #> R version 4.6.1 (2026-06-24)
 #> Platform: aarch64-apple-darwin23
-#> Running under: macOS Sonoma 14.8.7
+#> Running under: macOS Sonoma 14.8.9
 #> 
 #> Matrix products: default
 #> BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib 
@@ -1061,11 +1061,11 @@ sessionInfo()
 #> [40] desc_1.4.3          pkgdown_2.2.1       pillar_1.11.1      
 #> [43] bslib_0.12.0        gtable_0.3.6        glue_1.8.1         
 #> [46] data.table_1.18.6.1 Rcpp_1.1.2          statmod_1.5.2      
-#> [49] systemfonts_1.3.2   xfun_0.60           tibble_3.3.1       
-#> [52] tidyselect_1.2.1    knitr_1.51          farver_2.1.2       
+#> [49] systemfonts_1.3.2   xfun_0.61           tibble_3.3.1       
+#> [52] tidyselect_1.2.1    knitr_1.52          farver_2.1.2       
 #> [55] patchwork_1.3.2     htmltools_0.5.9     labeling_0.4.3     
-#> [58] rmarkdown_2.31      compiler_4.6.1      S7_0.2.2           
-#> [61] readxl_1.5.0
+#> [58] rmarkdown_2.32      compiler_4.6.1      S7_0.2.2           
+#> [61] readxl_1.5.0.1
 ```
 
 ------------------------------------------------------------------------

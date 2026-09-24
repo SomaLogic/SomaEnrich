@@ -26,18 +26,20 @@ plotES(
 - x:
 
   Character or integer. The pathway name *or* row index of
-  `gsea_results` to use for creating the plot and extracting leading
-  edge features. Default is 1 (first row). If a character, must match a
-  pathway name in the "pathway_name" column of `gsea_results`.
+  `gsea_results$results` to use for creating the plot and extracting
+  leading edge features. Default is 1 (first row). If a character, must
+  match a pathway name in the "pathway" column of
+  `gsea_results$results`.
 
 - gsea_results:
 
-  A `data.frame` of GSEA results from
-  [`somaPrGSEA()`](https://somalogic.github.io/SomaEnrich/reference/somaPrGSEA.md).
-  The `leadingEdge` column will be used to identify and annotate leading
-  edge features on the plot. The `resource_id` column will be used to
-  retrieve pathway members. If a custom pathway was used for GSEA, the
-  pathway must be provided to `cust_path`.
+  The list output of
+  [`somaPrGSEA()`](https://somalogic.github.io/SomaEnrich/reference/somaPrGSEA.md),
+  containing a `results` data frame and `final_ranks` vector. The
+  `leadingEdge` column of `results` will be used to identify and
+  annotate leading edge features on the plot. The `pathway_id` column
+  will be used to retrieve pathway members. If a custom pathway was used
+  for GSEA, the pathway must be provided to `cust_path`.
 
 - cust_path:
 

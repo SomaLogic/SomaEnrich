@@ -68,15 +68,16 @@ features on the running enrichment score curve.</p>
 
 <dl><dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
 <dd><p>Character or integer. The pathway name <em>or</em> row index of
-<code>gsea_results</code> to use for creating the plot and extracting leading edge
-features. Default is 1 (first row). If a character, must match a pathway
-name in the "pathway_name" column of <code>gsea_results</code>.</p></dd>
+<code>gsea_results$results</code> to use for creating the plot and extracting leading
+edge features. Default is 1 (first row). If a character, must match a
+pathway name in the "pathway" column of <code>gsea_results$results</code>.</p></dd>
 
 
 <dt id="arg-gsea-results">gsea_results<a class="anchor" aria-label="anchor" href="#arg-gsea-results"></a></dt>
-<dd><p>A <code>data.frame</code> of GSEA results from <code><a href="somaPrGSEA.html">somaPrGSEA()</a></code>.
-The <code>leadingEdge</code> column will be used to identify and annotate leading
-edge features on the plot. The <code>resource_id</code> column will be used to
+<dd><p>The list output of <code><a href="somaPrGSEA.html">somaPrGSEA()</a></code>, containing a
+<code>results</code> data frame and <code>final_ranks</code> vector. The <code>leadingEdge</code> column
+of <code>results</code> will be used to identify and annotate leading edge
+features on the plot. The <code>pathway_id</code> column will be used to
 retrieve pathway members. If a custom pathway was used for GSEA, the
 pathway must be provided to <code>cust_path</code>.</p></dd>
 
