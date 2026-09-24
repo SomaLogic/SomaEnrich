@@ -25,6 +25,10 @@ ver <- paste0("https://img.shields.io/badge/Version-", ver,
 
 
 <!-- badges: start -->
+![GitHub version](`r ver`)
+[![R-CMD-check](https://github.com/SomaLogic/SomaEnrich/workflows/R-CMD-check/badge.svg)](https://github.com/SomaLogic/SomaEnrich/actions)
+[![Lifecycle: maturing](https://img.shields.io/badge/Lifecycle-Maturing-007EC6)](https://lifecycle.r-lib.org/articles/stages.html#maturing)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://choosealicense.com/licenses/mit/)
 <!-- badges: end -->
 
 _This R package is an in-development resource and is research use only._
@@ -38,7 +42,10 @@ to pathway analysis, as well as detailed documentation describing the unique
 steps required to perform these operations with proteomic data (as opposed 
 to genomic data).
 
-For more information about SomaScan data files (i.e. the ADAT, or `.adat` file) 
+The full documentation of `SomaEnrich`, including function help and 
+package vignettes, can be viewed on the
+[package website](https://somalogic.github.io/SomaEnrich/). For more 
+information about SomaScan data files (i.e. the ADAT, or `.adat` file) 
 and their format, please see the 
 [SomaLogic-Data](https://github.com/SomaLogic/SomaLogic-Data) GitHub repository.
 
