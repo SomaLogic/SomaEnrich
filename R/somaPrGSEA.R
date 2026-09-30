@@ -95,7 +95,8 @@
 #'   algorithm used here is non-deterministic, a seed must be set for results
 #'   to be reproducible. Default is 42.
 #' @param ... Optional arguments passed to [fgseaMultilevel()].
-#' @return A list with two elements:
+#' @return An object of class `somaPrGSEA` (inheriting from `list`) with two
+#'   elements:
 #' \describe{
 #'   \item{results}{A `data.frame` object containing the results of GSEA,
 #'                  where the results in each row correspond to a single tested
@@ -325,8 +326,10 @@ somaPrGSEA <- function(ranks,
     if ( verbose ) {
         .done("Done!")
     }
-    
-    return(list(results = results,
-                final_ranks = final_ranks))
+
+    out <- list(results = results,
+                final_ranks = final_ranks)
+    class(out) <- c("somaPrGSEA", "list")
+    return(out)
 }
 

@@ -2,65 +2,119 @@
 % Please edit documentation in R/plotBubble.R
 \name{plotBubble}
 \alias{plotBubble}
-\title{ORA Bubble Plot}
+\alias{plotBubble.somaORA}
+\alias{plotBubble.somaPrGSEA}
+\alias{plotBubble.default}
+\title{Enrichment Bubble Plot}
 \usage{
-plotBubble(
-  ora_results,
+plotBubble(x, ...)
+
+\method{plotBubble}{somaORA}(
+  x,
   n_pathways = 25,
   font_size = 9,
   bubble_color_low = "orange",
   bubble_color_high = "blue",
-  path_labels = c("name", "id")
+  path_labels = c("name", "id"),
+  ...
 )
+
+\method{plotBubble}{somaPrGSEA}(
+  x,
+  n_pathways = 25,
+  font_size = 9,
+  bubble_color_low = "orange",
+  bubble_color_high = "blue",
+  path_labels = c("name", "id"),
+  ...
+)
+
+\method{plotBubble}{default}(x, ...)
 }
 \arguments{
-\item{ora_results}{A \code{data.frame} of ORA results from \code{\link[=somaORA]{somaORA()}}.}
+\item{x}{An object of class \code{somaORA} from \code{\link[=somaORA]{somaORA()}}, or of class
+\code{somaPrGSEA} from \code{\link[=somaPrGSEA]{somaPrGSEA()}}. Unclassed ORA \code{data.frame}s and GSEA
+lists (containing \code{results} and \code{final_ranks} elements) are also accepted via
+the default method.}
+
+\item{...}{Additional arguments passed to methods.}
 
 \item{n_pathways}{The number of feature sets/pathways to be included in the
 plot. Default is 25.}
 
-\item{font_size}{Numeric. Base font size for the plot. Default is 12.}
+\item{font_size}{Numeric. Base font size for the plot. Default is 9.}
 
 \item{bubble_color_low}{Character. Color to use for low (i.e. small)
-p-values. Default is "orange".}
+p-values. Default is \code{"orange"}.}
 
 \item{bubble_color_high}{Character. Color to use for high (i.e. larger)
-p-values. Default is "blue".}
+p-values. Default is \code{"blue"}.}
 
 \item{path_labels}{Character. String indicating the identifier to be used
-for each feature set (on the y axis). Options include "name"
-(the full feature set name) or "id" (the set identifier/accession number).
-Default is "name".}
+for each feature set. Options include \code{"name"} (the full feature set
+name) or \code{"id"} (the set identifier/accession number). Default is
+\code{"name"}. This sets the y-axis labels for both ORA and GSEA plots.}
 }
 \value{
-A ggplot object of the ORA bubble plot. Rows are sorted by
-the adjusted p-value and "\% Overlap", i.e. percentage of the pathway
-corresponding to "interesting" features (those provided to the \code{features}
-argument of \code{\link[=somaORA]{somaORA()}}).
+A ggplot object. Rows are the top \code{n_pathways} sets by adjusted
+p-value. For ORA, pathways are displayed sorted by adjusted p-value, the
+x-axis is fold enrichment, and bubble size is \verb{\% Overlap} (percentage of
+the pathway corresponding to interesting features provided to
+\code{\link[=somaORA]{somaORA()}}). For GSEA, pathways with positive NES are displayed above
+those with negative NES, each group sorted by adjusted p-value; the
+x-axis is NES, and bubble size is leading-edge percentage.
 }
 \description{
-Creates a bubble plot to display results of ORA. Bubble size corresponds
+Creates a bubble plot from ORA or GSEA results. The x-axis
+metric depends on the class of the results: fold enrichment
+is used for \code{\link[=somaORA]{somaORA()}} results, and NES for \code{\link[=somaPrGSEA]{somaPrGSEA()}}
+results.
+}
+\details{
+In ORA-derived bubble plots, bubble size corresponds
 to the percentage of features in the feature set/pathway that are provided as
-"interesting" features to \code{\link[=somaORA]{somaORA()}}. Bubbles are colored by adjusted
-p-value. One bubble is plotted per pathway.
+"interesting" features to \code{\link[=somaORA]{somaORA()}}.
+
+In GSEA-derived bubble plots, bubble size corresponds to the percentage of
+features in the feature set/pathway that fall in the leading edge subset
+returned by \code{\link[=somaPrGSEA]{somaPrGSEA()}}. GSEA plots are split into side-by-side panels
+for negative and positive NES, each with its own x-axis range. If all
+plotted pathways share the same NES direction, a single unfaceted panel is
+shown instead.
+
+In both types of plots, one bubble is plotted per pathway, and bubbles
+are colored by adjusted p-value.
 }
 \examples{
+# --- ORA bubble plot ---
 deg <- head(t_tests$EntrezGeneSymbol, 50)
 bg <- SomaDataIO::getAnalyteInfo(example_data_11k)$EntrezGeneSymbol
-res <- somaORA(features = deg, 
-               universe = bg)
-plotBubble(res)
+ora_res <- somaORA(features = deg,
+                   universe = bg)
+plotBubble(ora_res)
 
 # Display fewer feature sets
-plotBubble(res, n_pathways = 10)
+plotBubble(ora_res, n_pathways = 10)
 
 # Use GO or MSigDb accession identifiers, instead of full names
-plotBubble(res, path_labels = "id")
-   
+plotBubble(ora_res, path_labels = "id")
+
 # Other plot customizations can be performed using ggplot2
-plotBubble(res) +
+plotBubble(ora_res) +
    ggplot2::ggtitle("Overrepresentation Analysis (ORA) Results") +
-   ggplot2::theme(legend.position = "none")
+   ggplot2::theme(panel.grid.major = ggplot2::element_blank(),
+                  panel.border = ggplot2::element_rect(colour = "black", 
+                                              fill = NA, linewidth = 1))
+
+\dontrun{
+# --- GSEA bubble plot ---
+ranks <- prepareRanks(stats = t_tests$t_stat,
+                      features = t_tests$EntrezGeneSymbol)
+gsea_res <- somaPrGSEA(ranks = ranks)
+plotBubble(gsea_res)
+# Only one panel will be generated if all NES values are positive or negative
+plotBubble(gsea_res, n_pathways = 10)
+}
 }
 \author{
 Amanda Hiser

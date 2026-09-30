@@ -76,7 +76,7 @@ The functions in this package can be divided into a few categories:
 
 * Data visualization tools
     + create an enrichment plot from a GSEA results table (`plotES()`)
-    + create a bubble plot from an ORA results table (`plotBubble()`)
+    + create a bubble plot from ORA or GSEA results (`plotBubble()`)
 
 Below is a basic walkthrough illustrating how SomaEnrich functions can be
 used to perform pre-ranked GSEA, using differential expression results from
@@ -460,12 +460,19 @@ When the NES value is positive, the leading edge genes are found at the left of
 the plot. However, if the NES was negative, we'd see these genes on the right
 side of the plot, _after_ the apex of the enrichment line.
 
-```{r}
+```{r plot-gsea-lead, fig.width=8, fig.height=6}
 plotES("amino acid biosynthetic process",
        gsea_results = gsea_res,
        show_leading_edge = TRUE)
 ```
 
+Additionally, the results of GSEA can also be visualized as a bubble plot
+with `plotBubble()`. The plot will be split into two panels, one for
+pathways with NES > 0, and one for NES < 0.
+
+```{r plot-gsea-bubble, fig.width=8, fig.height=7}
+plotBubble(gsea_res)
+```
 
 ---------------
 

@@ -187,11 +187,13 @@ gsea_res <- somaPrGSEA(ranks = unique_ranks)
 ```
 
 ```{r gsea-viz, fig.width=8, fig.height=6}
-# Visualize the enrichment score for a chosen pathway
-plotES("female gamete generation", gsea_results = gsea_res)
-
-# Add leading edge points to plot
+# Visualize the enrichment score for a chosen pathway with leading edge points
 plotES("female gamete generation", gsea_results = gsea_res, show_leading_edge = TRUE)
+```
+
+```{r gsea-bubble, fig.width=8, fig.height=7}
+# Visualize a bubble plot for the top n pathways
+plotBubble(gsea_res)
 ```
 
 

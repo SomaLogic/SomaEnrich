@@ -19,6 +19,7 @@ res_def <- suppressWarnings(somaPrGSEA(ranks = ranks))
 
 # Testing -----
 test_that("`somaPrGSEA()` output has expected structure", {
+  expect_s3_class(res_def, "somaPrGSEA")
   expect_type(res_def, "list")
   expect_named(res_def, c("results", "final_ranks"))
   expect_s3_class(res_def$results, "data.frame")

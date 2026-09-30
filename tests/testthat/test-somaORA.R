@@ -20,6 +20,14 @@ res_def    <- somaORA(features = deg, universe = bg)
 
 
 # Testing -----
+test_that("`somaORA()` output has expected structure", {
+    expect_s3_class(res_def, "somaORA")
+    expect_s3_class(res_def, "data.frame")
+    expect_equal(colnames(res_def),
+                 c("resource_code", "pathway_id", "pathway", "pval", "padj",
+                   "foldEnrichment", "overlap", "size", "overlapFeatures"))
+})
+
 test_that("`somaORA()` produces the expected output with 'H' resource", {
     expect_snapshot(
         somaORA(features = deg, universe = bg, resource = "h", verbose = TRUE)
@@ -54,8 +62,8 @@ test_that("`somaORA()` has comparable results to `fgsea::fora()`", {
     fora_res <- fora_res[, shared_cols]
     somaora_res <- somaora_res[, shared_cols]
     
-    expect_identical(fora_res, somaora_res, 
-                     ignore_attr = c("row.names", "waldo_opts")) # Need to ignore row names, since these were previously sorted
+    expect_identical(fora_res, somaora_res,
+                     ignore_attr = c("row.names", "class", "waldo_opts")) # Need to ignore row names, since these were previously sorted
 })
 
 test_that("`somaORA()` will error if features aren't found in universe", {

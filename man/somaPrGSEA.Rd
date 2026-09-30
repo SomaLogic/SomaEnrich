@@ -131,7 +131,8 @@ to TRUE to show all messages, and FALSE to silence messages.}
 \item{...}{Optional arguments passed to \code{\link[fgsea:fgseaMultilevel]{fgseaMultilevel()}}.}
 }
 \value{
-A list with two elements:
+An object of class \code{somaPrGSEA} (inheriting from \code{list}) with two
+elements:
 \describe{
 \item{results}{A \code{data.frame} object containing the results of GSEA,
 where the results in each row correspond to a single tested

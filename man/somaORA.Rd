@@ -105,9 +105,9 @@ By default, messages will only be shown in interactive R sessions. Set
 to TRUE to show all messages, and FALSE to silence messages.}
 }
 \value{
-A \code{data.frame} object containing the results of ORA, where the
-results in each row correspond to a single tested pathway. The data frame
-contains the following columns:
+An object of class \code{somaORA} (inheriting from \code{data.frame})
+containing the results of ORA, where the results in each row correspond
+to a single tested pathway. The data frame contains the following columns:
 \item{resource_code}{Abbreviated character string representing the name
 of the original gene set resource.}
 \item{pathway_id}{Pathway identifier/accession number from the original

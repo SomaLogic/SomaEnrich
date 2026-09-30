@@ -82,9 +82,9 @@
 #'   over-represented targets (`features`) was chosen. See `Details` for more
 #'   information.
 #'   If using `AptNames`, you must set `use_aptnames = TRUE`.
-#' @returns A `data.frame` object containing the results of ORA, where the
-#'   results in each row correspond to a single tested pathway. The data frame
-#'   contains the following columns:
+#' @returns An object of class `somaORA` (inheriting from `data.frame`)
+#'   containing the results of ORA, where the results in each row correspond
+#'   to a single tested pathway. The data frame contains the following columns:
 #' \item{resource_code}{Abbreviated character string representing the name 
 #'                      of the original gene set resource.}
 #' \item{pathway_id}{Pathway identifier/accession number from the original
@@ -260,6 +260,8 @@ somaORA <- function(features,
     if ( verbose ) {
         .done("Done!")
     }
-    
-    return(cbind(new_col, results))
+
+    results <- cbind(new_col, results)
+    class(results) <- c("somaORA", "data.frame")
+    return(results)
 }
