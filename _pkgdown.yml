@@ -91,6 +91,7 @@ reference:
     - apt2gene
     - gene2apt
     - go2apt
+    - path2apt
     - collapseAptData
 
   - title: Pathway Conversion
