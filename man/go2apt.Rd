@@ -30,6 +30,9 @@ information about SomaScan identifiers and their formats, please see
 \description{
 Retrieve SomaScan Analytes in a Given GO Term
 }
+\details{
+A wrapper around \code{\link[=path2apt]{path2apt()}} specifically for GO terms.
+}
 \examples{
 go2apt("GO:0019319") # Returns vector of AptNames
 

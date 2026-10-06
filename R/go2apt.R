@@ -1,5 +1,8 @@
 #' Retrieve SomaScan Analytes in a Given GO Term
 #' 
+#' @details
+#' A wrapper around [path2apt()] specifically for GO terms.
+#' 
 #' @inheritParams apt2gene
 #' @param x Character. A single GO term ID. Must contain "GO:" prefix.
 #' @returns Character vector of SomaScan analyte identifiers in `AptName`
@@ -17,23 +20,19 @@ go2apt <- function(x,
                    col_meta_df = NULL,
                    verbose = interactive()) {
     
-    if ( is.null(col_meta_df) ) {
-        if ( verbose ) {
-            message("`col_meta_df` not provided, using 11K annotations by default.")
-        }
-        col_meta_df <- SomaDataIO::getAnalyteInfo(example_data_11k)
+    if ( length(x) > 1 ) {
+        stop("`go2apt()` accepts only 1 GO term as input.", call. = FALSE)
     }
     
-    go_map <- pathway_map[pathway_map$group_code %in% c("bp", "mf"), ]
+    go_ids <- pathway_map$pathway_id[pathway_map$group_code %in% c("bp", "mf")]
     
-    if ( !x %in% go_map$pathway_id ) {
+    if ( !x %in% go_ids ) {
         err_msg <- paste0("The provided GO term '", x, "'", " was not found.")
-        stop(err_msg)
+        stop(err_msg, call. = FALSE)
     }
     
-    genes <- go_map[go_map$pathway_id == x, ]$gene_symbol
-    apts <- gene2apt(genes, col_meta_df, collapse = FALSE)
-    apts <- unique(apts)
+    # Ensures a vector is returned, instead of a list
+    results <- path2apt(x, col_meta_df = col_meta_df, verbose = verbose)[[1L]]
     
-    return(apts[!is.na(apts)])
+    return(results)
 }

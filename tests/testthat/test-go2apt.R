@@ -57,3 +57,11 @@ test_that("`go2apt()` can be applied over a vector of GO terms via sapply", {
     # Each term should return at least one AptName
     expect_true(all(lengths(res_list) > 0L))
 })
+
+test_that("`go2apt()` errors when a vector of terms is supplied", {
+    go_terms <- c("GO:2001256", "GO:0000462", "GO:2001259")
+
+    expect_error(go2apt(go_terms), 
+                 "`go2apt()` accepts only 1 GO term as input.", 
+                 fixed = TRUE)
+})
