@@ -6,7 +6,7 @@
 <!-- badges: start -->
 
 ![GitHub
-version](https://img.shields.io/badge/Version-0.1.0-success.svg?style=flat&logo=github)
+version](https://img.shields.io/badge/Version-0.1.0.9000-success.svg?style=flat&logo=github)
 [![R-CMD-check](https://github.com/SomaLogic/SomaEnrich/workflows/R-CMD-check/badge.svg)](https://github.com/SomaLogic/SomaEnrich/actions)
 [![Lifecycle:
 maturing](https://img.shields.io/badge/Lifecycle-Maturing-007EC6)](https://lifecycle.r-lib.org/articles/stages.html#maturing)

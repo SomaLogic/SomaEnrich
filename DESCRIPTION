@@ -1,7 +1,7 @@
 Type: Package
 Package: SomaEnrich
 Title: Pathway Analysis Tools for SomaScan Data
-Version: 0.1.0
+Version: 0.1.0.9000
 Description: An R package providing pathway analysis tools for the 
     SomaScan assay, a proteomics platform.
 Authors@R: c(
