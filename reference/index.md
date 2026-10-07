@@ -19,10 +19,18 @@ identifiers.
 
 - [`apt2gene()`](https://somalogic.github.io/SomaEnrich/reference/apt2gene.md)
   : Convert SomaScan Analytes to Genes
+
 - [`gene2apt()`](https://somalogic.github.io/SomaEnrich/reference/gene2apt.md)
   : Convert Gene Identifiers to SomaScan Analytes (v2)
+
 - [`go2apt()`](https://somalogic.github.io/SomaEnrich/reference/go2apt.md)
   : Retrieve SomaScan Analytes in a Given GO Term
+
+- [`path2apt()`](https://somalogic.github.io/SomaEnrich/reference/path2apt.md)
+  :
+
+  Retrieve SomaScan Analytes in Pathways from `pathway_map`
+
 - [`collapseAptData()`](https://somalogic.github.io/SomaEnrich/reference/collapseAptData.md)
   : Transform Aptamer-Centric Data to Gene-Centric Data
 

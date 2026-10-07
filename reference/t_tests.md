@@ -40,5 +40,5 @@ head(t_tests)
 # Formula used to generate results for a given analyte
 t_tests$formula[[1]]
 #> seq.6580.29 ~ Sex
-#> <environment: 0x141af8738>
+#> <environment: 0x10ee87c18>
 ```

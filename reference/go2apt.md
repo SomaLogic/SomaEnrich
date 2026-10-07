@@ -37,6 +37,12 @@ All analytes associated with each gene are returned. For more
 information about SomaScan identifiers and their formats, please see
 [SomaDataIO::SeqId](https://somalogic.github.io/SomaDataIO/reference/SeqId.html).
 
+## Details
+
+A wrapper around
+[`path2apt()`](https://somalogic.github.io/SomaEnrich/reference/path2apt.md)
+specifically for GO terms.
+
 ## Examples
 
 ``` r
