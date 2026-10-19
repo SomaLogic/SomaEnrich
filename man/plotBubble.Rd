@@ -11,21 +11,24 @@ plotBubble(x, ...)
 
 \method{plotBubble}{somaORA}(
   x,
-  n_pathways = 25,
+  n_pathways = 15,
   font_size = 9,
-  bubble_color_low = "orange",
-  bubble_color_high = "blue",
+  bubble_color_low = "#FF9600",
+  bubble_color_high = "#5164F8",
   path_labels = c("name", "id"),
+  title = NULL,
   ...
 )
 
 \method{plotBubble}{somaPrGSEA}(
   x,
-  n_pathways = 25,
+  n_pathways = 15,
   font_size = 9,
-  bubble_color_low = "orange",
-  bubble_color_high = "blue",
+  bubble_color_low = "#FF9600",
+  bubble_color_high = "#5164F8",
   path_labels = c("name", "id"),
+  title = NULL,
+  grey_nonsig = FALSE,
   ...
 )
 
@@ -40,28 +43,34 @@ the default method.}
 \item{...}{Additional arguments passed to methods.}
 
 \item{n_pathways}{The number of feature sets/pathways to be included in the
-plot. Default is 25.}
+plot. Default is 15.}
 
 \item{font_size}{Numeric. Base font size for the plot. Default is 9.}
 
 \item{bubble_color_low}{Character. Color to use for low (i.e. small)
-p-values. Default is \code{"orange"}.}
+p-values. Default is \verb{#FF9600} (orange).}
 
 \item{bubble_color_high}{Character. Color to use for high (i.e. larger)
-p-values. Default is \code{"blue"}.}
+p-values. Default is \verb{#5164F8} (blue).}
 
 \item{path_labels}{Character. String indicating the identifier to be used
 for each feature set. Options include \code{"name"} (the full feature set
 name) or \code{"id"} (the set identifier/accession number). Default is
 \code{"name"}. This sets the y-axis labels for both ORA and GSEA plots.}
+
+\item{title}{Character or \code{NULL}. Optional plot title. Default is \code{NULL}.}
+
+\item{grey_nonsig}{Numeric or logical. GSEA only. Bubbles with an adjusted
+p-value at or above this cutoff are filled grey. \code{TRUE} is equivalent to
+\code{0.05}, and \code{FALSE} disables greying. Default is \code{FALSE}. Numeric values
+(\code{0.1}, etc.) will set the adj. p-value cutoff to that value.}
 }
 \value{
 A ggplot object. Rows are the top \code{n_pathways} sets by adjusted
 p-value. For ORA, pathways are displayed sorted by adjusted p-value, the
 x-axis is fold enrichment, and bubble size is \verb{\% Overlap} (percentage of
 the pathway corresponding to interesting features provided to
-\code{\link[=somaORA]{somaORA()}}). For GSEA, pathways with positive NES are displayed above
-those with negative NES, each group sorted by adjusted p-value; the
+\code{\link[=somaORA]{somaORA()}}). For GSEA, pathways are sorted by adjusted p-value, the
 x-axis is NES, and bubble size is leading-edge percentage.
 }
 \description{
@@ -77,10 +86,7 @@ to the percentage of features in the feature set/pathway that are provided as
 
 In GSEA-derived bubble plots, bubble size corresponds to the percentage of
 features in the feature set/pathway that fall in the leading edge subset
-returned by \code{\link[=somaPrGSEA]{somaPrGSEA()}}. GSEA plots are split into side-by-side panels
-for negative and positive NES, each with its own x-axis range. If all
-plotted pathways share the same NES direction, a single unfaceted panel is
-shown instead.
+returned by \code{\link[=somaPrGSEA]{somaPrGSEA()}}.
 
 In both types of plots, one bubble is plotted per pathway, and bubbles
 are colored by adjusted p-value.
@@ -99,21 +105,25 @@ plotBubble(ora_res, n_pathways = 10)
 # Use GO or MSigDb accession identifiers, instead of full names
 plotBubble(ora_res, path_labels = "id")
 
+# Add a title
+plotBubble(ora_res, title = "Overrepresentation Analysis (ORA) Results")
+
 # Other plot customizations can be performed using ggplot2
-plotBubble(ora_res) +
-   ggplot2::ggtitle("Overrepresentation Analysis (ORA) Results") +
+plotBubble(ora_res, title = "ORA Results") +
    ggplot2::theme(panel.grid.major = ggplot2::element_blank(),
-                  panel.border = ggplot2::element_rect(colour = "black", 
+                  panel.border = ggplot2::element_rect(colour = "black",
                                               fill = NA, linewidth = 1))
 
 \dontrun{
 # --- GSEA bubble plot ---
-ranks <- prepareRanks(stats = t_tests$t_stat,
-                      features = t_tests$EntrezGeneSymbol)
-gsea_res <- somaPrGSEA(ranks = ranks)
-plotBubble(gsea_res)
-# Only one panel will be generated if all NES values are positive or negative
-plotBubble(gsea_res, n_pathways = 10)
+ranks <- prepareRanks(stats = t_tests$log2_fc,
+                      features = t_tests$EntrezGeneSymbol,
+                      verbose = FALSE)
+gsea_res <- somaPrGSEA(ranks = ranks, verbose = FALSE)
+plotBubble(gsea_res, title = "GSEA Results")
+
+# Grey out bubbles with adjusted p-value >= 0.1
+plotBubble(gsea_res, grey_nonsig = 0.1)
 }
 }
 \author{
