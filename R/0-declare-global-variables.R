@@ -11,6 +11,7 @@ if ( getRversion() >= "2.15.1" )
       "category",
       "direction",
       "example_data_11k",
+      "fill_padj",
       "foldEnrichment",
       "geneList",
       "hit_color",

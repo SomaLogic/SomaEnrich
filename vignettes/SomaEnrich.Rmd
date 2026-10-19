@@ -467,8 +467,8 @@ plotES("amino acid biosynthetic process",
 ```
 
 Additionally, the results of GSEA can also be visualized as a bubble plot
-with `plotBubble()`. The plot will be split into two panels, one for
-pathways with NES > 0, and one for NES < 0.
+with `plotBubble()`. Pathways are ranked by adjusted p-value and plotted
+against their normalized enrichment scores (NES).
 
 ```{r plot-gsea-bubble, fig.width=8, fig.height=7}
 plotBubble(gsea_res)
